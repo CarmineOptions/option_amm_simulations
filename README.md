@@ -1,2 +1,4 @@
-# option_amm_simulations
-Simulations of happens with the AMM
+# Option AMM Simulations
+
+Simple simulations of what happens with the AMM.
+
