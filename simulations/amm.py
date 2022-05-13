@@ -33,7 +33,7 @@ class AMM:
 
     REVERSE_LONG_SHORT = {'long': 'short', 'short': 'long'}
 
-    def __init__(self, time_till_maturity: int, current_underlying_price: float) -> None:
+    def __init__(self, time_till_maturity: float, current_underlying_price: float) -> None:
         self.call_strikes = [x / 10 for x in range(9, 20)]
         self.put_strikes = [x / 10 for x in range(2, 12)]
 
