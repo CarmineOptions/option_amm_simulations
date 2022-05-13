@@ -49,8 +49,10 @@ class AMM:
         self.time_till_maturity = time_till_maturity
         self.current_underlying_price = current_underlying_price
 
-    def next_epoch(self, time_till_maturity: int, current_underlying_price: float) -> None:
-        if time_till_maturity < 1:
+    def next_epoch(self, time_till_maturity: float, current_underlying_price: float) -> None:
+        if time_till_maturity <= 0.:
+            raise ValueError
+        if current_underlying_price <= 0.:
             raise ValueError
         self.time_till_maturity = time_till_maturity
         self.current_underlying_price = current_underlying_price

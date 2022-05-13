@@ -27,6 +27,7 @@ def test_black_scholes(
     assert math.isclose(call_premia, expected_call_premia, rel_tol=0.001)
     assert math.isclose(put_premia, expected_put_premia, rel_tol=0.001)
 
+
 def test_amm_init() -> None:
     amm = AMM(time_till_maturity=10., current_underlying_price=1.)
 
@@ -52,6 +53,26 @@ def test_amm_init() -> None:
     assert math.isclose(amm.current_underlying_price, 1., abs_tol=0.0000001)
 
 
+def test_amm_next_epoch() -> None:
+    amm = AMM(time_till_maturity=100., current_underlying_price=1.)
+    assert math.isclose(amm.time_till_maturity, 100., abs_tol=0.0000001)
+    assert math.isclose(amm.current_underlying_price, 1., abs_tol=0.0000001)
+
+    amm.next_epoch(time_till_maturity=98., current_underlying_price=2.)
+    assert math.isclose(amm.time_till_maturity, 98., abs_tol=0.0000001)
+    assert math.isclose(amm.current_underlying_price, 2., abs_tol=0.0000001)
+
+    with pytest.raises(ValueError):
+        amm.next_epoch(time_till_maturity=0., current_underlying_price=2.)
+
+    with pytest.raises(ValueError):
+        amm.next_epoch(time_till_maturity=-2., current_underlying_price=2.)
+
+    with pytest.raises(ValueError):
+        amm.next_epoch(time_till_maturity=1., current_underlying_price=0.)
+
+    with pytest.raises(ValueError):
+        amm.next_epoch(time_till_maturity=1., current_underlying_price=-2.)
 
 
 # @pytest.mark.parametrize(
