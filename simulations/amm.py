@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import math
 
 import scipy.stats
@@ -33,15 +33,31 @@ class AMM:
 
     REVERSE_LONG_SHORT = {'long': 'short', 'short': 'long'}
 
-    def __init__(self, time_till_maturity: float, current_underlying_price: float) -> None:
-        self.call_strikes = [x / 10 for x in range(9, 20)]
-        self.put_strikes = [x / 10 for x in range(2, 12)]
+    def __init__(
+            self,
+            time_till_maturity: float,
+            current_underlying_price: float,
+            call_strikes: Optional[List[float]] = None,
+            put_strikes: Optional[List[float]] = None,
+            call_volatility: float = 0.1,
+            put_volatility: float = 0.1,
+            call_pool_size: float = 100,
+            put_pool_size: float = 100,
+    ) -> None:
+        if call_strikes is None:
+            self.call_strikes = [x / 10 for x in range(9, 20)]
+        else:
+            self.call_strikes = call_strikes
+        if put_strikes is None:
+            self.put_strikes = [x / 10 for x in range(2, 12)]
+        else:
+            self.put_strikes = put_strikes
 
-        self.call_volatility = 0.1
-        self.put_volatility = 0.1
+        self.call_volatility = call_volatility
+        self.put_volatility = put_volatility
 
-        self.call_pool_size = 100
-        self.put_pool_size = 100
+        self.call_pool_size = call_pool_size
+        self.put_pool_size = put_pool_size
 
         self.call_issued_options = []
         self.put_issued_options = []
@@ -109,6 +125,7 @@ class AMM:
 
     def get_premia(self, strike_price: float, type_: str, long_short: str, quantity: float = 1.) -> float:
         premia = self._get_price(strike=strike_price, type_=type_, long_short=long_short, quantity=quantity)
+
         if long_short == 'long':
             # User goes long -> pool is short and receives premia
             return premia * (1 + self.FEE_SIZE) * quantity
@@ -205,7 +222,7 @@ class AMM:
                 if self.call_pool_size < quantity:
                     raise NotEnoughPoolCapitalError
             if type_ == 'put':
-                if self.put_pool_size < quantity * self.current_underlying_price:
+                if self.put_pool_size < quantity * strike_price:
                     raise NotEnoughPoolCapitalError
 
         # 3) adjust volatility
@@ -215,7 +232,7 @@ class AMM:
         self._pay_receive_premia(type_, signed_premia_after_fee)
 
         all_locked_capital = sum(option.locked_capital for option in existing_options)
-        all_locked_capital_base = all_locked_capital if type_=='call' else all_locked_capital/self.current_underlying_price
+        all_locked_capital_base = all_locked_capital if type_=='call' else all_locked_capital/strike_price
         # FIXME: locked capital is strike*quantity for puts
         if existing_options and (all_locked_capital_base > quantity):
             # 5.1) Aggregate existing_options into one:
@@ -225,15 +242,15 @@ class AMM:
                 strike_price=existing_options[0].strike_price,
                 type_=existing_options[0].type_,
                 long_short=existing_options[0].long_short,
-                locked_capital=quantity if type_=='call' else quantity*self.current_underlying_price,
+                locked_capital=quantity if type_=='call' else quantity*strike_price,
                 quantity=quantity
             )
             if type_ == 'call':
                 remaining_locked_capital = all_locked_capital - quantity
                 remaining_quantity = all_locked_capital - quantity
             else:
-                remaining_locked_capital = all_locked_capital - quantity*self.current_underlying_price
-                remaining_quantity = all_locked_capital / self.current_underlying_price - quantity
+                remaining_locked_capital = all_locked_capital - quantity*strike_price
+                remaining_quantity = all_locked_capital / strike_price - quantity
             complementary_option = Option(
                 strike_price=existing_options[0].strike_price,
                 type_=existing_options[0].type_,
@@ -257,7 +274,7 @@ class AMM:
                 if type_ == 'call':
                     self.call_pool_size += quantity
                 else:
-                    self.put_pool_size += quantity * self.current_underlying_price
+                    self.put_pool_size += quantity * strike_price
 
             return existing_option
 
@@ -266,7 +283,7 @@ class AMM:
             if type_ == 'call':
                 locked_capital = quantity
             else:
-                locked_capital = quantity * self.current_underlying_price
+                locked_capital = quantity * strike_price
             if long_short == 'long':
                 user_option = Option(strike_price, type_, long_short, locked_capital=0., quantity=quantity)
                 pool_option = Option(
@@ -295,7 +312,7 @@ class AMM:
                 if type_ == 'call':
                     self.call_pool_size -= quantity
                 else:
-                    self.put_pool_size -= quantity * self.current_underlying_price
+                    self.put_pool_size -= quantity * strike_price
 
             return user_option
 
