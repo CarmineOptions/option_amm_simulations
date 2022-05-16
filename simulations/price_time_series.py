@@ -27,7 +27,7 @@ def _calc_volatility(alpha: float, beta: float, sigma: np.array) -> np.array:
     return np.sqrt(x / y)
 
 
-def generate_price_variance_process(
+def generate_price_volatility_process(
         alpha: float = 0.3,
         beta: float = 0.1,
         gamma: float = 0.9,

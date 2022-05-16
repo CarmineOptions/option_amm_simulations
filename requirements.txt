@@ -6,3 +6,4 @@ jupyter-client==7.3.1
 jupyter-console==6.4.3
 jupyter-core==4.10.0
 matplotlib==3.5.2
+pytest==7.1.2
