@@ -86,7 +86,7 @@ class AMM:
             new_pool_size = self.call_pool_size - correct_token_quantity
         else:
             current_volatility = self.put_volatility
-            new_pool_size = self.put_pool_size -correct_token_quantity
+            new_pool_size = self.put_pool_size - correct_token_quantity
 
         signed_quantity = correct_token_quantity if long_short=='long' else -correct_token_quantity
 
