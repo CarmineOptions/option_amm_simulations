@@ -232,9 +232,9 @@ class AMM:
         self._pay_receive_premia(type_, signed_premia_after_fee)
 
         all_locked_capital = sum(option.locked_capital for option in existing_options)
-        all_locked_capital_base = all_locked_capital if type_=='call' else all_locked_capital/strike_price
-        # FIXME: locked capital is strike*quantity for puts
-        if existing_options and (all_locked_capital_base > quantity):
+        # all_locked_capital_base = all_locked_capital if type_=='call' else all_locked_capital/strike_price
+        all_quantity = sum(option.quantity for option in existing_options)
+        if existing_options and (all_quantity >= quantity):
             # 5.1) Aggregate existing_options into one:
             # put the options together, so that they cover the required option
             # quantity is in base (ETH) token, call's locked capital in base (ETH) and put's in (USDC)
@@ -242,15 +242,21 @@ class AMM:
                 strike_price=existing_options[0].strike_price,
                 type_=existing_options[0].type_,
                 long_short=existing_options[0].long_short,
-                locked_capital=quantity if type_=='call' else quantity*strike_price,
+                locked_capital=quantity if type_ == 'call' else quantity * strike_price,
                 quantity=quantity
             )
+            # This below works thanks to mapping equal options (specifically equal strikes) on each other
             if type_ == 'call':
-                remaining_locked_capital = all_locked_capital - quantity
-                remaining_quantity = all_locked_capital - quantity
+                if long_short == 'long':
+                    remaining_locked_capital = 0.
+                else:
+                    remaining_locked_capital = all_locked_capital - quantity
             else:
-                remaining_locked_capital = all_locked_capital - quantity*strike_price
-                remaining_quantity = all_locked_capital / strike_price - quantity
+                if long_short == 'long':
+                    remaining_locked_capital = 0.
+                else:
+                    remaining_locked_capital = all_locked_capital - quantity * strike_price
+            remaining_quantity = all_quantity - quantity
             complementary_option = Option(
                 strike_price=existing_options[0].strike_price,
                 type_=existing_options[0].type_,
@@ -263,7 +269,10 @@ class AMM:
             for option in existing_options:
                 self._remove_option(option)
             self._add_option(existing_option)
-            self._add_option(complementary_option)
+            if remaining_quantity > 0:
+                self._add_option(complementary_option)
+            if remaining_quantity < 0.:
+                raise ValueError
 
             # 5) remove option
             self._remove_option(existing_option)
