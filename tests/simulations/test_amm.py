@@ -70,9 +70,6 @@ def test_amm_next_epoch() -> None:
     assert math.isclose(amm.current_underlying_price, 2., abs_tol=0.0000001)
 
     with pytest.raises(ValueError):
-        amm.next_epoch(time_till_maturity=0., current_underlying_price=2.)
-
-    with pytest.raises(ValueError):
         amm.next_epoch(time_till_maturity=-2., current_underlying_price=2.)
 
     with pytest.raises(ValueError):
@@ -782,7 +779,101 @@ def test_trade_call_matching_issued_options_not_enough_quantity(
         assert len(amm.put_issued_options) == 3
 
 
+def test_clear_raises() -> None:
+    amm = AMM(
+        time_till_maturity=100.,
+        current_underlying_price=100.,
+        call_strikes=[float(x) for x in range(90, 160, 10)],
+        put_strikes=[float(x) for x in range(50, 120, 10)],
+        call_volatility=0.01,
+        put_volatility=0.01,
+        call_pool_size=100.,
+        put_pool_size=10_000.,
+    )
+    call_1 = Option(strike_price=100., type_='call', long_short='long', locked_capital=0., quantity=100.)
+    call_2 = Option(strike_price=100., type_='call', long_short='short', locked_capital=100., quantity=100.)
+    put_1 = Option(strike_price=90., type_='put', long_short='long', locked_capital=0., quantity=100.)
+    put_2 = Option(strike_price=90., type_='put', long_short='short', locked_capital=100. * 90., quantity=100.)
+    amm.call_issued_options = [call_1, call_2]
+    amm.put_issued_options = [put_1, put_2]
+
+    with pytest.raises(ValueError):
+        amm.clear()
 
 
-def test_clear() -> None:
-    pass
+@pytest.mark.parametrize(
+    'current_underlying_price, expected_call_pool_size, expected_put_pool_size',
+    [
+        (
+                80.,
+                106.,
+                10_660. - 4*40 + 3*30 - 10
+        ),
+        (
+                95.,
+                106.,
+                10_660. - 4*25 + 3*15
+        ),
+        (
+                105.,
+                106. + 1*5/105 - 2*5/105,
+                10_660. - 4*15 + 3*5
+        ),
+        (
+                115.,
+                106. + 1*15/115 - 2*15/115,
+                10_660. - 4*5
+        ),
+        (
+                125.,
+                106. + 1*25/125 - 2*25/125 + 3*5/125,
+                10_660.
+        ),
+        (
+                135.,
+                106. + 1*35/135 - 2*35/135 + 3*15/135 - 4*5/135,
+                10_660.
+        )
+    ]
+)
+def test_clear(
+        current_underlying_price: float,
+        expected_call_pool_size: float,
+        expected_put_pool_size: float
+) -> None:
+    amm = AMM(
+        time_till_maturity=100.,
+        current_underlying_price=100.,
+        call_strikes=[float(x) for x in range(90, 160, 10)],
+        put_strikes=[float(x) for x in range(50, 120, 10)],
+        call_volatility=0.01,
+        put_volatility=0.01,
+        call_pool_size=100.,
+        put_pool_size=10_000.,
+    )
+    call_1 = Option(strike_price=100., type_='call', long_short='long', locked_capital=0., quantity=1.)
+    call_2 = Option(strike_price=100., type_='call', long_short='short', locked_capital=2., quantity=2.)
+    call_3 = Option(strike_price=120., type_='call', long_short='long', locked_capital=0., quantity=3.)
+    call_4 = Option(strike_price=130., type_='call', long_short='short', locked_capital=4., quantity=4.)
+    put_1 = Option(strike_price=90., type_='put', long_short='long', locked_capital=0., quantity=1.)
+    put_2 = Option(strike_price=90., type_='put', long_short='short', locked_capital=180., quantity=2.)
+    put_3 = Option(strike_price=110., type_='put', long_short='long', locked_capital=0., quantity=3.)
+    put_4 = Option(strike_price=120., type_='put', long_short='short', locked_capital=480., quantity=4.)
+    amm.call_issued_options = [call_1, call_2, call_3, call_4]
+    amm.put_issued_options = [put_1, put_2, put_3, put_4]
+
+    amm.next_epoch(time_till_maturity=0., current_underlying_price=current_underlying_price)
+    amm.clear()
+
+    assert math.isclose(amm.call_volatility, 0.01, rel_tol=0.000001)
+    assert math.isclose(amm.put_volatility, 0.01, rel_tol=0.000001)
+
+    assert math.isclose(amm.call_pool_size, expected_call_pool_size, rel_tol=0.00001)
+    assert math.isclose(amm.put_pool_size, expected_put_pool_size, rel_tol=0.00001)
+
+    assert not amm.call_issued_options
+    assert not amm.put_issued_options
+
+    assert math.isclose(amm.time_till_maturity, 0., rel_tol=0.00001)
+    assert math.isclose(amm.current_underlying_price, current_underlying_price, rel_tol=0.00001)
+

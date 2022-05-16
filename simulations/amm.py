@@ -66,7 +66,7 @@ class AMM:
         self.current_underlying_price = current_underlying_price
 
     def next_epoch(self, time_till_maturity: float, current_underlying_price: float) -> None:
-        if time_till_maturity <= 0.:
+        if time_till_maturity < 0.:
             raise ValueError
         if current_underlying_price <= 0.:
             raise ValueError
@@ -327,6 +327,8 @@ class AMM:
 
     def clear(self) -> None:
         """Executes all options with current self.current_underlying_price."""
+        if not math.isclose(self.time_till_maturity, 0., rel_tol=0.00001):
+            raise ValueError
         for call_option in list(self.call_issued_options):
             # call's locked capital in base (ETH)
             # call pool is in base (ETH)
